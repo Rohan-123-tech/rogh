@@ -21,3 +21,348 @@
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
+
+import java.awt.*;
+import javax.swing.*;
+
+public class GameFrame extends JFrame 
+{
+    public GameFrame() 
+    {
+        this.setTitle("Game Demo");
+        this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        this.setSize(800,600);
+        this.setLocation(50,50);
+        this.setResizable(false);
+        
+        GameView view = new GameView();
+        view.setState(new IntroState(view));
+        this.add(view, BorderLayout.CENTER);
+        
+        this.setVisible(true);
+    }
+    
+    public static void main(String[] args) 
+    {
+        new GameFrame();
+   }
+}
+
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
+import javax.swing.Timer;
+
+public class GameView extends JComponent
+{
+    private AbstractGameState state;
+    private Timer timer;
+    
+    public GameView()
+    {
+        this.addMouseListener(new MouseHandler());
+        this.addMouseMotionListener(new MouseMotionHandler());
+        this.addKeyListener(new KeyHandler());
+        this.setFocusable(true);
+        this.transferFocus();
+    }
+    
+    public void setState(AbstractGameState state)
+    {
+        this.state = state;
+        this.repaint();
+    }
+
+    public void paintComponent(Graphics g)
+    {
+        state.drawOn(g);
+    }
+    
+    public void startClock(int milliseconds)
+    {
+        timer = new Timer(milliseconds, new TimerHandler());
+        timer.start();
+    }
+    
+    public void stopClock()
+    {
+        this.timer.stop();
+    }
+    
+    class MouseHandler extends MouseAdapter
+    {
+        public void mousePressed(MouseEvent event)
+        {
+            state.handleMousePressed(event.getX(), event.getY());
+        }
+    }
+
+    class MouseMotionHandler extends MouseMotionAdapter
+    {
+        public void mouseMoved(MouseEvent event)
+        {
+            state.handleMouseMoved(event.getX(), event.getY());
+        }
+    }
+    
+    class KeyHandler extends KeyAdapter
+    {
+        public void keyPressed(KeyEvent event)
+        {
+            state.handleKeyPressed(event.getKeyCode());
+        }
+    }
+    
+    class TimerHandler implements ActionListener
+    {
+        public void actionPerformed(ActionEvent event)
+        {
+            state.clocktick();
+            repaint();
+        }
+    }
+}
+import java.awt.*;
+
+public class AbstractGameState
+{
+    private GameView view;
+    
+    public AbstractGameState(GameView view)
+    {
+        this.view = view;
+    }
+    
+    public GameView getView()
+    {
+        return this.view;
+    }
+    
+    public void drawOn(Graphics g)
+    {
+    }
+    
+    public void clocktick()
+    {
+    }
+    
+    public void handleMousePressed(int mouseX, int mouseY)
+    {
+    }
+    
+    public void handleMouseMoved(int mouseX, int mouseY)
+    {
+    }
+            
+    public void handleKeyPressed(int keyCode)
+    {
+    }
+}
+import java.awt.*;
+import java.awt.event.*;
+
+public class IntroState extends AbstractGameState
+{
+    public IntroState(GameView view)
+    {
+        super(view);
+    }
+    
+    public void drawOn(Graphics g)
+    {
+        Rectangle bounds = this.getView().getBounds();
+        g.setColor(Color.PINK);
+        g.fillRect(0, 0, bounds.width, bounds.height);
+        g.setColor(Color.WHITE);
+        Font font = new Font("Sans-Serif", Font.BOLD, 50);
+        g.setFont(font);
+        g.drawString("Press SPACE to start game!", 50, 250);
+    }
+            
+    public void handleKeyPressed(int keyCode)
+    {
+        if (keyCode == KeyEvent.VK_SPACE)
+        {
+            this.getView().setState(new PlayState(this.getView()));
+        }
+    }
+}
+import java.awt.*;
+import javax.swing.*;
+
+public class PlayState extends AbstractGameState
+{
+    private Sprite player;
+    private Sprite baddie;
+    
+    public PlayState(GameView view)
+    {
+        super(view);
+        
+        Image image;
+        
+        image = new ImageIcon("/images/player.png").getImage();
+        this.player = new Sprite();
+        this.player.setImage(image);
+        this.player.setPosition(400, 200);
+        
+        image = new ImageIcon("/images/baddie.png").getImage();
+        this.baddie = new BouncingSprite();
+        this.baddie.setImage(image);
+        this.baddie.setPosition(200, 300);
+        this.baddie.setMotion(0, 10);
+
+        this.getView().startClock(50);
+    }
+    
+    public void drawOn(Graphics g)
+    {
+        Rectangle bounds = this.getView().getBounds();
+        g.setColor(Color.ORANGE);
+        g.fillRect(0, 0, bounds.width, bounds.height);
+        
+        this.player.drawOn(g);
+        this.baddie.drawOn(g);
+    }
+    
+    public void clocktick()
+    {
+        this.baddie.clocktick();
+        
+        if (this.baddie.getRect().intersects(this.player.getRect()))
+        {
+            this.getView().setState(new GameOverState(this.getView()));
+        }
+    }
+    
+    public void handleMouseMoved(int mouseX, int mouseY)
+    {
+        this.player.setPosition(mouseX, this.player.getY());
+    }
+}
+import java.awt.*;
+import java.awt.event.*;
+
+public class GameOverState extends AbstractGameState
+{
+    public GameOverState(GameView view)
+    {
+        super(view);
+    }
+    
+    public void drawOn(Graphics g)
+    {
+        Rectangle bounds = this.getView().getBounds();
+        g.setColor(Color.RED);
+        g.fillRect(0, 0, bounds.width, bounds.height);
+        g.setColor(Color.BLACK);
+        Font font = new Font("Sans-Serif", Font.BOLD, 40);
+        g.setFont(font);
+        g.drawString("Game Over! Press SPACE to EXIT", 50, 250);
+    }
+            
+    public void handleKeyPressed(int keyCode)
+    {
+        if (keyCode == KeyEvent.VK_SPACE)
+        {
+           System.exit(0);
+        }
+    }
+}
+import java.awt.*;
+
+public class Sprite
+{
+    private Image image;
+    private Rectangle rect;
+    private Point motion;
+    
+    public Sprite()
+    {
+        this.image = null;
+        this.rect = new Rectangle(0, 0, 0, 0);
+        this.motion = new Point(0, 0);
+    }
+    
+    public void setImage(Image image)
+    {
+        this.image = image;
+        this.rect.width = image.getWidth(null); 
+        this.rect.height = image.getHeight(null);
+    }
+    
+    public void setPosition(int x, int y)
+    {
+        this.rect.x = x;
+        this.rect.y = y;
+    }
+    
+    public Rectangle getRect()
+    {
+        return this.rect;
+    }
+
+    public int getX()
+    {
+        return this.rect.x;
+    }
+    
+    public int getY()
+    {
+        return this.rect.y;
+    }
+
+    public int getWidth()
+    {
+        return this.rect.width;
+    }
+    
+    public int getHeight()
+    {
+        return this.rect.height;
+    }
+    
+    public void setMotion(int dx, int dy)
+    {
+        this.motion.x = dx;
+        this.motion.y = dy;
+    }
+
+    public int getDX()
+    {
+        return this.motion.x;
+    }
+    
+    public int getDY()
+    {
+        return this.motion.y;
+    }
+    
+    public void drawOn(Graphics g)
+    {
+        g.drawImage(this.image, this.rect.x, this.rect.y, null);
+    }
+    
+    public void clocktick()
+    {
+        this.rect.x += this.motion.x;
+        this.rect.y += this.motion.y;
+    }
+}
+public class BouncingSprite extends Sprite
+{
+    public void clocktick()
+    {
+        super.clocktick();
+        
+        if (this.getY() < 0 && this.getDY() < 0)
+        {
+            this.setMotion(this.getDX(), - this.getDY());
+        }
+        else
+        if ((this.getY() + this.getHeight()) > 600 && this.getDY() > 0)
+        {
+            this.setMotion(this.getDX(), - this.getDY());
+        }     
+    }
+}
